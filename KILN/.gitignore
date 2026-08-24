@@ -1,0 +1,6 @@
+kiln-data/
+*.db
+*.log
+/bin/
+/dist/
+.DS_Store
