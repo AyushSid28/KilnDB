@@ -6,6 +6,8 @@ from typing import Iterator, Tuple #Used for type hints
 #tuple is a fixed set of values (str,int)
 #An iterator is something you can loop through one element at a time.
 
+from fault import faults
+
 class RecordType(IntEnum):
     REDO_PUT = 1 #during recovery put the data again
     REDO_DEL = 2 #Delete this record during recovery.
@@ -68,6 +70,23 @@ class WAL:#This is like a manager of our log
         #LSN is the byte offset before we write this record
         #This gives the current position in the file and lseek means look for something
         lsn = os.lseek(self.fd,0, os.SEEK_END)
+
+
+        #check for wal append fault so that we can inject a fault in the middle of the write
+        faults.check('before_wal_append')
+
+        #Now we need to inject a fault in the middle of the write
+        if faults.active_fault == 'during_wal_append':
+            #Now we can simply use the half of the writes and then add a crash after it
+            half=max(1, len(full_record)//2)
+
+            #Write only half of the record to the file 
+            os.write(self.fd, full_record[:half])
+            #This os._exit is used to immediately terminate the program  
+            os._exit(1)
+
+
+
         #Write the full record to the file
         os.write(self.fd, full_record)
 

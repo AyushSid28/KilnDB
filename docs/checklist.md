@@ -9,12 +9,12 @@
 
 ## Phase 0 — WAL
 
-- [ ] Record: u32 length, u32 crc32, u8 type, payload (little-endian)
-- [ ] Types: RedoPut, RedoDel, Commit, Checkpoint
-- [ ] LSN = byte offset in `wal.log`
-- [ ] `fdatasync` after commit group; never ACK before fsync
-- [ ] Torn tail: bad length or crc → truncate to last good record
-- [ ] Test: 1000 records, chop last 7 bytes, reopen sees 999
+- [x] Record: u32 length, u32 crc32, u8 type, payload (little-endian)
+- [x] Types: RedoPut, RedoDel, Commit, Checkpoint
+- [x] LSN = byte offset in `wal.log`
+- [x] `fdatasync` after commit group; never ACK before fsync
+- [x] Torn tail: bad length or crc → truncate to last good record
+- [x] Test: 1000 records, chop last 7 bytes, reopen sees 999
 
 ## Phase 1 — Real crash on WAL
 

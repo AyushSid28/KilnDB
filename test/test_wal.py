@@ -1,6 +1,6 @@
 import os
 import pytest
-from KILN.wal import WAL, RecordType
+from wal import WAL, RecordType
 
 def test_wal_append_and_truncate(tmp_path):
 
