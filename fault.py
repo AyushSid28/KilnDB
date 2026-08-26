@@ -1,5 +1,4 @@
 import os
-
 #A class through which we can inject faults at specific points in our code
 class FaultPoint:
 
@@ -22,3 +21,5 @@ class FaultPoint:
 
 #Global fault point instance
 faults = FaultPoint()
+
+

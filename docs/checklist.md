@@ -18,21 +18,21 @@
 
 ## Phase 1 — Real crash on WAL
 
-- [ ] Spawn kiln as child; `os._exit` during append
-- [ ] Recovery: no crash loop, no invented records
-- [ ] Incomplete txn is not committed
+- [x] Spawn kiln as child; `os._exit` during append
+- [x] Recovery: no crash loop, no invented records
+- [x] Incomplete txn is not committed
 
 ## Phase 2 — Heap + checkpoint
 
-- [ ] 4096-byte slotted pages: id, checksum, page_lsn, slots
-- [ ] Checksum mismatch → fail closed or rebuild from WAL; never serve junk
-- [ ] Buffer pool; no dirty eviction (checkpoint if pool too dirty)
-- [ ] Checkpoint order: heap fsync **then** meta fsync
-- [ ] Kill mid-page write; recovery from WAL; no silent corruption
+- [x] 4096-byte slotted pages: id, checksum, page_lsn, slots
+- [x] Checksum mismatch → fail closed or rebuild from WAL; never serve junk
+- [x] Buffer pool; no dirty eviction (checkpoint if pool too dirty)
+- [x] Checkpoint order: heap fsync **then** meta fsync
+- [x] Kill mid-page write; recovery from WAL; no silent corruption
 
 ## Phase 3 — One transaction
 
-- [ ] BEGIN / GET / PUT / DEL / COMMIT / ABORT
+- [x] BEGIN / GET / PUT / DEL / COMMIT / ABORT
 - [ ] Write set in RAM; WAL only at COMMIT
 - [ ] GET missing → NOTFOUND; read-your-own-writes
 - [ ] ABORT discards write set
