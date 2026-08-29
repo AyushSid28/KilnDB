@@ -259,10 +259,14 @@ class Engine:
         """
 
         with self.commit_lock:
+            dirty_count = self.pool.get_dirty_count()
+            if dirty_count == 0:
+                return
+
             self.pool.flush_all_dirty()
             self.heap_file.sync()
 
-            wal_size = os.path.getsize(os.path.join(self.data_dir,"wal.log"))
+            wal_size = os.path.getsize(os.path.join(self.data_dir, "wal.log"))
 
             self.meta.checkpoint_lsn = wal_size
             self.meta.next_txn_id = self.next_txn_id
@@ -270,8 +274,8 @@ class Engine:
             self.meta.save()
 
     def close(self):
-            self.wal.close()
-            self.heap_file.close()
+        self.wal.close()
+        self.heap_file.close()
 
 
 

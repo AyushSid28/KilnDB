@@ -254,72 +254,58 @@ class Checker:
        all_writes = {} # txn_id -> [(key, value|None)]
 
        for e in self.history:
-          if isinstance(e,Begin):
+          if isinstance(e, Begin):
               txn_start[e.txn_id] = e.start_ts
-
           elif isinstance(e, Commit):
               txn_commit[e.txn_id] = e.commit_ts
-        
           elif isinstance(e, Write):
               all_writes.setdefault(e.txn_id, []).append((e.key, e.value))
-
           elif isinstance(e, Delete):
               all_writes.setdefault(e.txn_id, []).append((e.key, None))
 
+       #Build committed version per key: [(commit_ts,value)] sorted
+       committed_versions = {}
+       for tid, cts in txn_commit.items():
+           if tid in all_writes:
+               for key, value in all_writes[tid]:
+                   committed_versions.setdefault(key, []).append((cts, value))
 
-        
-        #Build committed version per key: [(commit_ts,value)] sorted
+       for key in committed_versions:
+           committed_versions[key].sort()
 
-          committed_versions = {}
-          for tid, cts in txn_commit.items():
-            if tid in all_writes:
-                for key, value in all_writes[tid]:
-                    committed_versions.setdefault(key,[]).append((cts, value))
+       # Track own writes as we walk through history
+       own_writes = {}
 
-          for key in committed_versions:
-            committed_versions[key].sort()
+       for e in self.history:
+           if isinstance(e, Begin):
+               own_writes[e.txn_id] = {}
+           elif isinstance(e, Write):
+               own_writes.setdefault(e.txn_id, {})[e.key] = e.value
+           elif isinstance(e, Delete):
+               own_writes.setdefault(e.txn_id, {})[e.key] = None
+           elif isinstance(e, Read):
+               if e.txn_id not in txn_start:
+                   continue
 
-        #
-          own_writes = {}
+               start_ts = txn_start[e.txn_id]
+               ow = own_writes.get(e.txn_id, {})
 
-          for e in self.history:
-            if isinstance(e, Begin):
-                own_writes[e.txn_id] = {}
+               #Expected: own writes first, then latest visible committed version
+               if e.key in ow:
+                   expected = ow[e.key]
+               else:
+                   expected = None
+                   #Walk backwards through committed versions
+                   for cts, val in reversed(committed_versions.get(e.key, [])):
+                       if cts <= start_ts:
+                           expected = val
+                           break
 
-            elif isinstance(e, Write):
-                own_writes.setdefault(e.txn_id, {})[e.key] = e.value
-
-            elif isinstance(e, Delete):
-                own_writes.setdefault(e.txn_id, {})[e.key] = None
-
-            elif isinstance(e, Read):
-                if e.txn_id not in txn_start:
-                    continue
-
-                start_ts = txn_start[e.txn_id]
-                ow = own_writes.get(e.txn_id, {})
-
-                #Expected: own writes first, then latest visible committed version
-
-                if e.key in ow:
-                    expected = ow[e.key]
-
-                else:
-                    expected = None
-
-                    #Walk backwards through committed versions
-                    for cts, val in reversed(committed_versions.get(e.key, [])):
-                        if cts < start_ts:
-                            expected = val
-                            break
-
-
-                if expected != e.value:
-                    violations.append(Violation("snapshot read",
-                    f"Txn {e.txn_id} read {e.key!r}= {e.value!r}"
-
-                    f"but expected {expected!r}"
-                    f"(start_ts={start_ts})"))
+               if expected != e.value:
+                   violations.append(Violation("snapshot_read",
+                       f"Txn {e.txn_id} read {e.key!r}={e.value!r} "
+                       f"but expected {expected!r} "
+                       f"(start_ts={start_ts})"))
 
        return violations
 

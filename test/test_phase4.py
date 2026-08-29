@@ -7,7 +7,7 @@ def test_first_committer_wins(tmp_path):
     First to COMMIT wins. Second gets ERR conflict.
     """
 
-    db = Engine(str(tmp_path)/ "kiln-data")
+    db = Engine(str(tmp_path / "kiln-data"))
 
     #Setup: balance=1000
     setup = db.begin()

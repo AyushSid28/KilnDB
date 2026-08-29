@@ -8,8 +8,10 @@ def test_single_txn_put_get_commit(tmp_path):
     BEGIN -> PUT -> GET -> COMMIT. DATA visible after commit
     """
 
-    db = Engine(str(tmp_path/ "kiln-data"))
+    db = Engine(str(tmp_path / "kiln-data"))
     txn = db.begin()
+
+    db.put(txn, b"user:42", b"Ayush")
 
     #Read your own writes: visible before commit 
     assert db.get(txn, b"user:42") == b'Ayush'
@@ -61,7 +63,7 @@ def test_abort_discards_writes(tmp_path):
 
     txn = db.begin()
     db.put(txn, b"temp", b"should diappear")
-    db.abort(txn)
+    txn.abort()
 
     txn2 = db.begin()
     assert db.get(txn2, b"temp") is None
@@ -84,7 +86,7 @@ def test_del_is_tombstone(tmp_path):
 
     #Now delete it
     txn2 = db.begin()
-    assert db.get(txn2, b"key", b"value")
+    assert db.get(txn2, b"key") == b"value"
     db.delete(txn2, b"key")
 
     assert db.get(txn2, b"key") is None
