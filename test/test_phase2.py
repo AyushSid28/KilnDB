@@ -19,9 +19,6 @@ def test_page_insert_and_read():
     assert page.get_record(slot1) == b"second record"
     assert page.get_record(slot2) == b"third"
 
-    assert page.slot_count(slot0) == b"Hello World"
-    assert page.get_record(slot1) == b"second record"
-    assert page.get_record(slot2) == b"third"
     assert page.slot_count == 3
 
 def test_page_serialize_and_deserialize():

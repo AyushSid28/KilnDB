@@ -66,15 +66,13 @@ class BufferPool:
         #All pages are dirty - caller should checkpoint before continuing
         # For v1, we just allow the pool to grow slightly over limit rather than losing data.return
 
-        def flush_all_dirty(self):
-            """Write all dirty pages to  heap.db.Called during checkpoint"""
+    def flush_all_dirty(self):
+        """Write all dirty pages to  heap.db.Called during checkpoint"""
 
-            for page in self.pages.values():
-                if page.dirty:
-                    self.heap_file.write_page(page)
-                    #write_page sets page.dirty = False
+        for page in self.pages.values():
+            if page.dirty:
+                self.heap_file.write_page(page)
+                #write_page sets page.dirty = False
 
-        def get_dirty_count(self) -> int:
-            return sum(1 for p in self.pages.values() if p.dirty)
-
-            
+    def get_dirty_count(self) -> int:
+        return sum(1 for p in self.pages.values() if p.dirty)

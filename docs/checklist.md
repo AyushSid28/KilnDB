@@ -33,25 +33,25 @@
 ## Phase 3 — One transaction
 
 - [x] BEGIN / GET / PUT / DEL / COMMIT / ABORT
-- [ ] Write set in RAM; WAL only at COMMIT
-- [ ] GET missing → NOTFOUND; read-your-own-writes
-- [ ] ABORT discards write set
-- [ ] Crash after ACK → restart → committed keys present
+- [x] Write set in RAM; WAL only at COMMIT
+- [x] GET missing → NOTFOUND; read-your-own-writes
+- [x] ABORT discards write set
+- [x] Crash after ACK → restart → committed keys present
 
 ## Phase 4 — MVCC / SI
 
-- [ ] In-memory hash key → versions; rebuilt on recovery
-- [ ] Visibility at start_ts + own writes
-- [ ] DEL = tombstone; old snapshots can still see prior value
-- [ ] First-committer-wins at COMMIT; loser `ERR conflict`
-- [ ] Write skew demo exists and is named as allowed
+- [x] In-memory hash key → versions; rebuilt on recovery
+- [x] Visibility at start_ts + own writes
+- [x] DEL = tombstone; old snapshots can still see prior value
+- [x] First-committer-wins at COMMIT; loser `ERR conflict`
+- [x] Write skew demo exists and is named as allowed
 
 ## Phase 5 — Checker
 
-- [ ] History: Begin, Read, Write, Delete, Commit (only if OK), Abort, Crash, Recovered
-- [ ] Invariants: durability, atomicity, snapshot reads, lost-update, no dirty read
-- [ ] Does not claim serializability
-- [ ] Hand-written both-commit lost-update → checker FAIL
+- [x] History: Begin, Read, Write, Delete, Commit (only if OK), Abort, Crash, Recovered
+- [x] Invariants: durability, atomicity, snapshot reads, lost-update, no dirty read
+- [x] Does not claim serializability
+- [x] Hand-written both-commit lost-update → checker FAIL
 
 ## Phase 6 — Chaos
 

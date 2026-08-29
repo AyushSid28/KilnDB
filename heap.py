@@ -1,6 +1,7 @@
 import os
 import struct
 import zlib
+from fault import faults
 
 PAGE_SIZE = 4096
 
@@ -86,10 +87,10 @@ class Page:
                 f"Refusing to serve corrupt data."
             )
 
-            self.data = bytearray(raw)
+        self.data = bytearray(raw)
 
 
-    def serialise(self) -> bytes:
+    def serialize(self) -> bytes:
             """
             Pack this page into exactly 4096 bytes for writing to disk
             """
@@ -146,6 +147,7 @@ class Page:
             self.slot_count += 1
             self.free_end = new_slot_pos
             self.dirty = True
+            return self.slot_count - 1
 
 
     def get_record(self, slot_index: int) -> bytes:
@@ -212,6 +214,17 @@ class HeapFile:
         raw = page.serialize()
         offset = page.page_id * PAGE_SIZE
         os.lseek(self.fd, offset, os.SEEK_SET)
+
+
+        if faults.active_fault == 'during_heap_page_write':
+            #write only half the page,then crash.
+            #This simulates a powerloss mid-page-write
+            #This page on disk will have garbage in secondhalf
+
+            #Checksum will catch it.WAL has the truth
+            half = len(raw) //2
+            os.write(self.fd, raw[:half])
+            os._exit(1)
         os.write(self.fd, raw)
         page.dirty = False
 
