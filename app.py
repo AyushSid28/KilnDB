@@ -242,7 +242,6 @@ def txn_badge(txn):
 st.markdown("""
 <div class="kiln-header">
     <h1>KILN DB</h1>
-    <p>A crash-safe, MVCC storage engine built from scratch in Python</p>
 </div>
 """, unsafe_allow_html=True)
 
