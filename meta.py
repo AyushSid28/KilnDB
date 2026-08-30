@@ -2,6 +2,13 @@ import os
 import struct
 import json
 
+
+#Meta stores information about the database
+#it stores data about 
+#checkpoint_lsn: Last WAL position that is safely checkpointed
+#next_txn_id: Transaction ID to assign to the next transaction
+#next_ts: Logical timestamp counter for MVCC/version ordering.
+#page_size: Page size in bytes (usually 4096)
 class Meta:
     """
     Manages the 'meta' file in kiln-data/.
@@ -18,12 +25,13 @@ class Meta:
         self.filepath = os.path.join(dirpath, "meta")
         self.tmp_filepath = os.path.join(dirpath, "meta.tmp")
 
-        #Defaults for a frsh database
+        #Defaults for a fresh database
 
         self.checkpoint_lsn = 0
         self.next_txn_id = 1
         self.next_ts = 1
         self.page_size = 4096
+
 
     def load(self) -> bool:
         """
@@ -49,7 +57,7 @@ class Meta:
             #Corrupt or unreadable meta - fail closed , start fro scratch
             return False
 
-
+    #A crash during metadata write could lose the checkpoint information
     def save(self):
         """
         Atomically write metsdata to disk
@@ -66,10 +74,18 @@ class Meta:
         }
 
         #1.Write to tmp file
+        # O_WRONLY: Write only
+        # O_CREAT: Create if missing
+        # O_TRUNC: Erase old contents if it exists
+
         fd = os.open(self.tmp_filepath,os.O_WRONLY | os.O_CREAT | os.O_TRUNC)
         os.write(fd, json.dumps(data).encode("utf-8"))
 
         #2. fsync the tmp file
+
+        #write(): RAM page cache only.
+        #fdatasync(): File data reaches storage device.
+        #fsync(): File data plus metadata reach storage.
         if hasattr(os, 'fdatasync'):
             os.fdatasync(fd)
 
@@ -80,9 +96,15 @@ class Meta:
 
 
         #3. Atomic  rename (replaces old meta)
+
+        #We never modify `meta` directly. We write the new contents to `meta.tmp`, fully flush it to disk, then atomically rename `meta.tmp` → `meta`.
+        #Why? If the process crashes while writing, the old `meta` stays intact instead of becoming a half-written/corrupted file.
+
         os.rename(self.tmp_filepath, self.filepath)
 
         #4. fsync the directory so the rename is durable 
+
+        #fsync(directory) guarantees that after a power crash, the filesystem still remembers that meta now points to the new file (meta.tmp's contents), not the old one.
         dir_fd = os.open(self.dirpath, os.O_RDONLY)
         os.fsync(dir_fd)
         os.close(dir_fd)

@@ -22,14 +22,13 @@ def encode_redo_put(txn_id: int, commit_ts: int, key: bytes, value: bytes) -> by
 def decode_redo_put(payload: bytes):
     txn_id, commit_ts, key_len = struct.unpack_from("<QQH",payload, 0)
     offset = 18
-
     key = payload[offset:offset + key_len]
     offset += key_len
     value_len = struct.unpack_from("<I", payload, offset)[0]
     offset +=4
     value = payload[offset:offset + value_len]
     return txn_id, commit_ts, key, value
-
+    
 def encode_redo_del(txn_id: int, commit_ts: int, key: bytes) -> bytes:
     return struct.pack("<QQH", txn_id, commit_ts, len(key))+ key
 
