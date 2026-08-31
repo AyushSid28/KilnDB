@@ -1,12 +1,19 @@
-from typing import Optional
+from typing import Optional #Optional means a variable can either have a value or None
 from enum import Enum
 
-
+#This is used to track the state of a transaction
+#ACTIVE means the transaction is active and can write to the database
+#COMMITTED means the transaction has committed and its write set has been written to the WAL
+#ABORTED means the transaction has aborted and its write set has been discarded
 class TxnState(Enum):
     ACTIVE = "ACTIVE"
     COMMITTED = "COMMITTED"
     ABORTED = "ABORTED"
 
+#THis is used to represent a write operation in a transaction's write set
+#key: The key of the write operation
+#value: The value of the write operation
+#is_delete: True if the write operation is a delete
 class WriteOp:
     """One write operation buffered in a transaction's write set"""
 
@@ -15,7 +22,7 @@ class WriteOp:
         self.value = value 
         self.is_delete = is_delete
 
-
+#This is used for tracking a single transaction
 class Transaction:
     """
     A single transaction.
@@ -62,7 +69,7 @@ class Transaction:
             return (True, op.value)
         return (False, None)
 
-
+   #This is used to abort a transaction and discard its write set
     def abort(self):
         """
         Discard the write set. Nothing from this txn becomes visible

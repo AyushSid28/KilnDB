@@ -3,22 +3,24 @@ import struct
 import threading
 from typing import Optional
 
-from wal import WAL, RecordType
-from heap import HeapFile
-from buffer import BufferPool
-from meta import Meta
-from catalog import Catalog, Version
-from txn import Transaction, TxnState
+from wal import WAL, RecordType #Crash recover log
+from heap import HeapFile #Actual disk pages
+from buffer import BufferPool #RAM cache of pages
+from meta import Meta #checkpoint information
+from catalog import Catalog, Version #MVCC version storage
+from txn import Transaction, TxnState #Tracks transaction state
 from fault import faults
+
+#The engine is the orchestrator.It doesnt directly store records but it coordinates all components
 
 class ConflictError(Exception):
     """Raised when a transaction loses the first-committer-wins check"""
     pass
-
+#This is used to encode the redo put record(txn_id,commit_ts,key,value) for the WAL into bytes as WAL only stores data in bytes
 def encode_redo_put(txn_id: int, commit_ts: int, key: bytes, value: bytes) -> bytes:
     return struct.pack("<QQH", txn_id, commit_ts, len(key)) + key + struct.pack("<I",len(value)) + value
 
-
+#At the same time we need to decode the redo put record from the WAL into the original values(txn_id,commit_ts,key,value)
 def decode_redo_put(payload: bytes):
     txn_id, commit_ts, key_len = struct.unpack_from("<QQH",payload, 0)
     offset = 18
@@ -28,24 +30,27 @@ def decode_redo_put(payload: bytes):
     offset +=4
     value = payload[offset:offset + value_len]
     return txn_id, commit_ts, key, value
-    
+
+#This is used to encode the redo delete record(txn_id,commit_ts,key) for the WAL into bytes as WAL only stores data in bytes
 def encode_redo_del(txn_id: int, commit_ts: int, key: bytes) -> bytes:
     return struct.pack("<QQH", txn_id, commit_ts, len(key))+ key
 
-
+#At the same time we need to decode the redo delete record from the WAL into the original values(txn_id,commit_ts,key)
 def decode_redo_del(payload: bytes):
     txn_id, commit_ts, key_len = struct.unpack_from("<QQH",
     payload, 0)
     key = payload[18:18 + key_len]
     return txn_id, commit_ts, key
 
+#This is used to encode the commit record(txn_id,commit_ts) for the WAL into bytes as WAL only stores data in bytes
 def encode_commit(txn_id: int, commit_ts: int) -> bytes:
     return struct.pack("<QQ", txn_id, commit_ts)
 
+#At the same time we need to decode the commit record from the WAL into the original values(txn_id,commit_ts)
 def decode_commit(payload: bytes):
     return struct.unpack("<QQ", payload)
 
-#The Engine
+#The Engine is the main class that coordinates all components
 class Engine:
     """
     The kiln database Engine
@@ -55,11 +60,12 @@ class Engine:
     close()
     """
 
+    #When database starts it creates the components like WAL, HeapFile, BufferPool, Meta, Catalog
     def __init__(self, data_dir:str):
         self.data_dir = data_dir
         os.makedirs(data_dir, exist_ok=True)
 
-
+        
         self.wal = WAL(os.path.join(data_dir, "wal.log"))
         self.heap_file = HeapFile(os.path.join(data_dir, "heap.db"))
 
@@ -95,6 +101,7 @@ class Engine:
 
         # Two-pass approach:
         # Pass 1: find all committed txn_ids
+        #In method 1 we find only those transactions that have committed and stored their commit_ts in the catalog
         committed_txns = {}
         for lsn, rec_type, payload in self.wal.read_all():
             if lsn < checkpoint_lsn:
@@ -104,6 +111,7 @@ class Engine:
                 committed_txns[txn_id] = commit_ts
 
         # Pass 2: replay their redo records
+        #In method 2 we replay the redo records of the committed transactions only the ones which were addded but not committed are ignored
         for lsn, rec_type, payload in self.wal.read_all():
             if lsn < checkpoint_lsn:
                 continue
@@ -131,6 +139,7 @@ class Engine:
     
     #Transaction API
 
+    #This is used to start a new transaction
     def begin(self) -> Transaction:
         """
         Start a new transaction. Allocates txn_id and start_ts
@@ -138,10 +147,11 @@ class Engine:
 
         txn_id = self.next_txn_id
         self.next_txn_id += 1
+        #Assigning the snapshot so that this transaction would see the database s it existed at this timestamp
         start_ts = self.next_ts - 1
         return Transaction(txn_id, start_ts)
 
-
+#Here the transaction only reads those versions which are visible to it at the start_ts that means begin_ts<=start_ts<end_ts
     def get(self, txn: Transaction, key: bytes) -> Optional[bytes]:
         """
         GET path
@@ -166,11 +176,12 @@ class Engine:
         return version.value
 
 
-    
+    #This is used to add a new key-value pair to the database it adds the key-value pair to the private write set of the transaction
     def put(self,txn: Transaction, key: bytes,value: bytes):
         """PUT into the private write set. Does NOT touch WAL or heap."""
         txn.put(key, value)
 
+    #This is used to delete a key-value pair from the database it adds the key to the private write set of the transaction
     def delete(self, txn:Transaction, key: bytes):
         """DEL into the private write set. Does NOT touch WAL or heap."""
 
@@ -201,6 +212,7 @@ class Engine:
             #Conflict check
             for key in txn.write_set:
                 latest_ts = self.catalog.get_latest_commit_ts(key)
+                #here if two transactions try to write to the same key at the same time then the one with the higher start_ts will abort
                 if latest_ts > txn.start_ts:
                     txn.abort()
                     raise ConflictError(
@@ -213,7 +225,7 @@ class Engine:
             self.next_ts += 1
             txn.commit_ts = commit_ts
 
-            #Write redo records to WAL
+            #Write redo records to WAL we write the redo records of the transaction to the WAL so that in case of a crash we can replay the transaction
             for key, op in txn.write_set.items():
                 if op.is_delete:
                     payload = encode_redo_del(txn.txn_id, commit_ts, key)
@@ -246,6 +258,8 @@ class Engine:
 
             return True
 
+#Checkpoint moves the data from WAL to HeapFile and updates the meta file
+#All the dirty pages are flushed to the heap.db and the checkpoint_lsn is updated
     def checkpoint(self):
         """
         Checkpoint

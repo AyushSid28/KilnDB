@@ -86,6 +86,14 @@ class Violation:
 
 #CHECKER
 
+#Checker is acting like a inspector it checks whether all rules were followed or not 
+
+#5 DB invariants to check
+#Durability: Committed data survives crash
+#Atomicity : Half-finished transaction never appear after recovery
+#Snapshot Reads: A transaction reads the world as it existed when it started.
+#Lost Update : Two people cannot unknowingly overwrite each other.
+#No Dirty Read: No transaction reads another transaction's uncommitted data.
 class Checker:
     """
     Validates a recorded history against kiln's snapshot isolation invariants.
@@ -103,6 +111,16 @@ class Checker:
     def __init__(self, history: List[Event]):
         self.history = history
 
+#History has events like:
+# Event	Meaning
+# Begin	Transaction starts.
+# Write	Writes a key/value.
+# Read	Reads value.
+# Delete	Deletes key.
+# Commit	Transaction commits.
+# Crash	Database crashes.
+# Recovered	Recovery restores value.
+
     def check(self) -> List[Violation]:
         """Run all 5 invariant checks.Empty list = PASS"""
         violations = []
@@ -115,6 +133,7 @@ class Checker:
 
     #Helpers
 
+    #THis is used to find the last crash event index why last because we need to find the last crash to check the durability
     def _find_crash_index(self) -> Optional[int]:
         """Find the last crash event index, or None"""
         for i in range(len(self.history) -1, -1, -1):
@@ -123,7 +142,7 @@ class Checker:
 
         return None
 
-
+    #This is used to build the expected database state from the committed transactions up to a given index
     def _build_committed_state(self, up_to_index: int) -> dict:
         """
         Build expected DB state from comitted txns up to an index.
@@ -158,6 +177,8 @@ class Checker:
 
     #Invariant 1: Durability
 
+
+    #Here after crash in the recovery data should be the same as the committed data
     def _check_durability(self) -> List[Violation]:
         """
         If commit(t) returned OK, then after crash + recovery.
@@ -202,7 +223,7 @@ class Checker:
        if crash_idx is None:
          return violations
 
-
+    #Here we are checking the atomicity of the transactions
        begun = set()
        committed_ids = set()
        writes = {} 
@@ -216,7 +237,7 @@ class Checker:
 
           elif isinstance(e, Delete):
             writes.setdefault(e.txn_id, {})[e.key] = None
-
+# here if the uncommitted data is there and then crash happens and in the recover state if some data is there then it is a violation
        uncommitted = begun - committed_ids
        committed_state = self._build_committed_state(crash_idx)
        recovered = self._get_recovered_state(crash_idx)
@@ -240,6 +261,8 @@ class Checker:
     #Invariant 3: Snapshot reads
 
 
+    #Snapshot isolation means when a transaction starts it takes a picture of the database so even if some another transaction updates the db then also T1 should see the old snapshot
+    #transaction own write can override the snapshot
     def _check_snapshot_reads(self) -> List[Violation]:
        """
        Read(t,k,v) must equal the version visible at start_ts plus t's own writes.
